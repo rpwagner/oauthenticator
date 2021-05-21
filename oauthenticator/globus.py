@@ -13,6 +13,7 @@ from traitlets import Bool
 from traitlets import default
 from traitlets import List
 from traitlets import Unicode
+from traitlets import Set
 
 from .oauth2 import OAuthenticator
 from .oauth2 import OAuthLogoutHandler
@@ -110,6 +111,7 @@ class GlobusOAuthenticator(OAuthenticator):
             'openid',
             'profile',
             'urn:globus:auth:scope:transfer.api.globus.org:all',
+            'urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships'
         ]
 
     globus_local_endpoint = Unicode(
@@ -134,6 +136,14 @@ class GlobusOAuthenticator(OAuthenticator):
     def _revoke_tokens_on_logout_default(self):
         return False
 
+    allowed_globus_groups = Set(
+        config=True, help="Automatically allow members of selected groups"
+    )
+
+    admin_globus_groups = Set(
+        config=True, help="Automatically allow members of selected groups"
+    )
+
     async def pre_spawn_start(self, user, spawner):
         """Add tokens to the spawner whenever the spawner starts a notebook.
         This will allow users to create a transfer client:
@@ -144,6 +154,8 @@ class GlobusOAuthenticator(OAuthenticator):
         if state:
             globus_data = base64.b64encode(pickle.dumps(state))
             spawner.environment['GLOBUS_DATA'] = globus_data.decode('utf-8')
+#            spawner.environment['GLOBUS_ALLOWED'] = str(self.allowed_globus_groups)
+#            spawner.environment['GLOBUS_ADMIN'] = str(self.admin_globus_groups)
 
     async def authenticate(self, handler, data=None):
         """
@@ -264,6 +276,19 @@ class GlobusOAuthenticator(OAuthenticator):
             )
             await self.fetch(req)
 
+# # base URL for Globus Groups API
+# groups_base_url = 'https://groups.api.globus.org/v2'
+
+# # Create the header
+# headers = {'Authorization':'Bearer '+ tokens['tokens']['groups.api.globus.org']['access_token']}
+
+# # Get the group info as JSON
+# group_info = requests.get(auth_base_url + '/groups/my_groups', headers=headers).json()
+
+# # Look at the response
+# print(json.dumps(user_info, indent=4, sort_keys=True)) 
+
+# Where's the hook to 
 
 class LocalGlobusOAuthenticator(LocalAuthenticator, GlobusOAuthenticator):
     """A version that mixes in local system user creation"""

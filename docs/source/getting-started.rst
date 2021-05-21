@@ -443,6 +443,8 @@ disable transfers, modify ``c.GlobusOAuthenticator.scope`` instead of
 ``c.GlobusOAuthenticator.exclude`` to avoid procuring unnecessary
 tokens.
 
+To do, add Groups example
+
 .. _moodle-setup-label:
 
 Moodle Setup
