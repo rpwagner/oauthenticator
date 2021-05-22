@@ -88,6 +88,10 @@ class GlobusOAuthenticator(OAuthenticator):
     def _token_url_default(self):
         return "https://auth.globus.org/v2/oauth2/token"
 
+    @default("groups_url")
+    def _groups_url_default(self):
+        return "https://groups.api.globus.org/v2/groups/my_groups"
+    
     identity_provider = Unicode(
         help="""Restrict which institution a user
     can use to login (GlobusID, University of Hogwarts, etc.). This should
@@ -104,7 +108,7 @@ class GlobusOAuthenticator(OAuthenticator):
     ).tag(config=True)
 
     def _exclude_tokens_default(self):
-        return ['auth.globus.org']
+        return ['auth.globus.org', 'groups.api.globus.org']
 
     def _scope_default(self):
         return [
@@ -216,13 +220,43 @@ class GlobusOAuthenticator(OAuthenticator):
             for token_dict in tokens
             if token_dict['resource_server'] not in self.exclude_tokens
         }
-        return {
+
+        # Check if user is a member of any allowed groups or an administrator
+        user_allowed = is_admin = False
+        if self.allowed_globus_groups:
+            # TODO: Check that group scope is set and has token
+            groups_headers = self.get_default_headers()
+            groups_headers['Authorization'] = 'Bearer {}'.format(by_resource_server['groups.api.globus.org']['access_token'])
+            # WTH is going on with the groups_url?
+            req = HTTPRequest("https://groups.api.globus.org/v2/groups/my_groups", method='GET', headers=groups_headers)
+            groups_resp = await self.fetch(req)
+            # Check if user is a member of any group in the allowed list
+            for group in groups_resp:
+                if group['id'] in self.allowed_globus_groups:
+                    user_allowed = True
+                    break
+            if self.admin_globus_groups:
+                for group in groups_resp:
+                    if group['id'] in self.admin_globus_groups:
+                        user_allowed = is_admin = True
+                        break
+
+        # Need to set admin True or False. Otherwise admin flag will stay on users removed
+        # from admin group
+        user_info = {
             'name': username,
+            'admin' : is_admin,
             'auth_state': {
                 'client_id': self.client_id,
                 'tokens': by_resource_server,
             },
         }
+
+        if user_allowed or not self.allowed_globus_groups:
+            return user_info
+        else:
+            self.log.warning("%s not in group allowed list", username)
+            return None
 
     def get_username(self, user_data):
         # It's possible for identity provider domains to be namespaced
@@ -275,21 +309,7 @@ class GlobusOAuthenticator(OAuthenticator):
                 body=urllib.parse.urlencode({'token': token}),
             )
             await self.fetch(req)
-
-# # base URL for Globus Groups API
-# groups_base_url = 'https://groups.api.globus.org/v2'
-
-# # Create the header
-# headers = {'Authorization':'Bearer '+ tokens['tokens']['groups.api.globus.org']['access_token']}
-
-# # Get the group info as JSON
-# group_info = requests.get(auth_base_url + '/groups/my_groups', headers=headers).json()
-
-# # Look at the response
-# print(json.dumps(user_info, indent=4, sort_keys=True)) 
-
-# Where's the hook to 
-
+    
 class LocalGlobusOAuthenticator(LocalAuthenticator, GlobusOAuthenticator):
     """A version that mixes in local system user creation"""
 
