@@ -443,7 +443,29 @@ disable transfers, modify ``c.GlobusOAuthenticator.scope`` instead of
 ``c.GlobusOAuthenticator.exclude`` to avoid procuring unnecessary
 tokens.
 
-To do, add Groups example
+Group Management
+~~~~~~~~~~~~~~~~~
+
+The denied users groups should be a union of a Globus Group and the configuration file. This way, the Globus OAuthenticator will block users who are in a Globus Group managed by a limited set of people. This way, a security team could bock users without needing access to the JupyterHub config. Likewise, a system administrator could add someone to the config without having the ability to change the denied users Globus Group.
+
+In terms of implementation, I don’t know when the denied users configuration is checked. Hopefully, it’s after the OAuthenticator authenticate method so we can just let things flow normally.
+
+For the allowed and admin users, the simpler way to do it is to limit it to just their respective Globus Groups, and raise a configuration error if both a Globus Group and a list of users is specified. Otherwise, we would need to check both the existing configuration traits and the Group. I’d rather have a single point of truth to start.
+
+For overall behavior, here’s the new flow for the Globus OAuthenticator I’m picturing:
+
+- Check to see if Groups are specified for deny, allow, or admin, if so:
+
+  - Look at the scopes, check that the Groups scope is in the token and config, otherwise, raise a config error.
+  - Raise a config error if both Globus Groups and existing config for allowed and admin users are set.
+  - Pull the user’s list of Groups. Maybe iterate over it and make a set of the Groups’ UUIDs.
+
+- Check the denied users Group first and return unauthenticated if a match.
+- Set admin=False on a default user info dict.
+- Look over all of the user’s groups.
+
+  - Check for a match of allowed users or admin, set is_authenticated=True if there’s a hit
+  - If a match on admin, set admin=True
 
 .. _moodle-setup-label:
 
