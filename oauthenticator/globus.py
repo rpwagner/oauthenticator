@@ -90,7 +90,7 @@ class GlobusOAuthenticator(OAuthenticator):
 
     globus_groups_url = Unicode(help="Globus URL to get list of user's Groups.").tag(config=True)
 
-    @default("groups_url")
+    @default("globus_groups_url")
     def _globus_groups_url_default(self):
         return "https://groups.api.globus.org/v2/groups/my_groups"
 
@@ -268,7 +268,6 @@ class GlobusOAuthenticator(OAuthenticator):
                 self.log.warning("%s in a blocked Globus Group", username)
                 return None
             else:
-                # Need to check if groups are sets, can't intersect sets and Nones
                 if user_group_ids & self.allowed_globus_groups:
                     user_allowed = True
                 if self.admin_globus_groups:
@@ -277,12 +276,12 @@ class GlobusOAuthenticator(OAuthenticator):
                     user_info['admin'] = False
                     if user_group_ids & self.admin_globus_groups:
                         # User is an admin, admins allowed by default
-                        user_allowed = is_admin = True
+                        user_allowed = user_info['admin'] = True
 
         if user_allowed or not use_globus_groups:
             return user_info
         else:
-            self.log.warning("%s not in group allowed list", username)
+            self.log.warning("%s not in an allowed Globus Group", username)
             return None
 
     def get_username(self, user_data):
