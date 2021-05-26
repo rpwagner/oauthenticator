@@ -247,10 +247,14 @@ class GlobusOAuthenticator(OAuthenticator):
             user_group_ids = set()
             # Groups user is an admin or manager of
             user_admin_groups = set()
+            # Get Groups access token, may not be in dict headed to auth state
             # TODO: Check that group scope is set and has token
+            for token_dict in tokens:
+                if token_dict['resource_server'] == 'groups.api.globus.org':
+                    groups_token = token_dict['access_token']
             # Get list of user's Groups
             groups_headers = self.get_default_headers()
-            groups_headers['Authorization'] = 'Bearer {}'.format(by_resource_server['groups.api.globus.org']['access_token'])
+            groups_headers['Authorization'] = 'Bearer {}'.format(groups_token)
             req = HTTPRequest(self.globus_groups_url, method='GET', headers=groups_headers)
             groups_resp = await self.fetch(req)
             # Build set of Group IDs
