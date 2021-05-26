@@ -104,6 +104,14 @@ class GlobusOAuthenticator(OAuthenticator):
     def _identity_provider_default(self):
         return os.getenv('IDENTITY_PROVIDER', '')
 
+    username_from_email = Bool(
+        help="""Create username from email address, not preferred username. 
+    Email scope must be set.""").tag(config=True)
+
+    @default("username_from_email")
+    def _username_from_email(self):
+        return False
+
     exclude_tokens = List(
         help="""Exclude tokens from being passed into user environments
         when they start notebooks, Terminals, etc."""
@@ -116,6 +124,7 @@ class GlobusOAuthenticator(OAuthenticator):
         return [
             'openid',
             'profile',
+            'email',
             'urn:globus:auth:scope:transfer.api.globus.org:all',
             'urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships'
         ]
@@ -291,7 +300,10 @@ class GlobusOAuthenticator(OAuthenticator):
     def get_username(self, user_data):
         # It's possible for identity provider domains to be namespaced
         # https://docs.globus.org/api/auth/specification/#identity_provider_namespaces # noqa
-        username, domain = user_data.get('preferred_username').split('@', 1)
+        username_field = 'preferred_username'
+        if self.username_from_email:
+            username_field = 'email'
+        username, domain = user_data.get(username_field).split('@', 1)
         if self.identity_provider and domain != self.identity_provider:
             raise HTTPError(
                 403,
