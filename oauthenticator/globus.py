@@ -105,11 +105,12 @@ class GlobusOAuthenticator(OAuthenticator):
         return os.getenv('IDENTITY_PROVIDER', '')
 
     username_from_email = Bool(
-        help="""Create username from email address, not preferred username. 
-    Email scope must be set.""").tag(config=True)
+        help="""Create username from email address, not preferred username. If
+        an identity provider is specified, email address must be from the same
+        domain. Email scope will be set automatically.""").tag(config=True)
 
     @default("username_from_email")
-    def _username_from_email(self):
+    def _username_from_email_default(self):
         return False
 
     exclude_tokens = List(
@@ -121,13 +122,20 @@ class GlobusOAuthenticator(OAuthenticator):
         return ['auth.globus.org', 'groups.api.globus.org']
 
     def _scope_default(self):
-        return [
+        scopes = [
             'openid',
             'profile',
-            'email',
-            'urn:globus:auth:scope:transfer.api.globus.org:all',
-            'urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships'
-        ]
+            'urn:globus:auth:scope:transfer.api.globus.org:all'
+            ]
+        if self.username_from_email:
+            scopes.add('email')
+        if (
+                self.allowed_globus_groups
+                or self.blocked_globus_groups
+                or self.admin_globus_groups
+            ):
+            scopes.add('urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships')
+        return scopes
 
     globus_local_endpoint = Unicode(
         help="""If Jupyterhub is also a Globus
@@ -153,18 +161,21 @@ class GlobusOAuthenticator(OAuthenticator):
 
     blocked_globus_groups = Set(
         config=True, help="""Automatically block members of defined Globus Groups. Takes precedence
-        over allowed and admin user groups. Groups are specified with their UUIDs."""
-    )
+        over allowed and admin user groups. Groups are specified with their UUIDs. Setting this will
+        add the Globus Groups scope."""
+    ).tag(config=True)
     
     allowed_globus_groups = Set(
         config=True, help="""Allow members of defined Globus Groups to access JupyterHub. Users in an
-        admin Globus Group are also automatically allowed.  Groups are specified with their UUIDs."""
-    )
+        admin Globus Group are also automatically allowed. Groups are specified with their UUIDs. Setting this will
+        add the Globus Groups scope."""
+    ).tag(config=True)
 
     admin_globus_groups = Set(
         config=True, help="""Set members of defined Globus Groups as JupyterHub admin users.
-        These users are automatically allowed to login to JupyterHub. Groups are specified with their UUIDs."""
-    )
+        These users are automatically allowed to login to JupyterHub. Groups are specified with
+        their UUIDs. Setting this will add the Globus Groups scope."""
+    ).tag(config=True)
 
     async def pre_spawn_start(self, user, spawner):
         """Add tokens to the spawner whenever the spawner starts a notebook.
@@ -257,7 +268,6 @@ class GlobusOAuthenticator(OAuthenticator):
             # Groups user is an admin or manager of
             user_admin_groups = set()
             # Get Groups access token, may not be in dict headed to auth state
-            # TODO: Check that group scope is set and has token
             for token_dict in tokens:
                 if token_dict['resource_server'] == 'groups.api.globus.org':
                     groups_token = token_dict['access_token']
