@@ -283,10 +283,11 @@ class GlobusOAuthenticator(OAuthenticator):
                     if membership['role'] == 'admin' or membership['role'] == 'manager':
                         user_admin_groups.add(group['id'])
             # Check blocked users
+            blocked_groups_membership = user_group_ids & self.blocked_globus_groups
             if (
-                    (user_group_ids & self.blocked_globus_groups) and
+                    blocked_groups_membership and
                     # Do not block admins or managers of blocked Groups
-                    not (self.blocked_globus_groups <= user_admin_groups)
+                    not (blocked_groups_membership <= user_admin_groups)
                 ):
                 self.log.warning("%s in a blocked Globus Group", username)
                 return None
