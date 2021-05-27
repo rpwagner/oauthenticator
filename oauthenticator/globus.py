@@ -128,13 +128,13 @@ class GlobusOAuthenticator(OAuthenticator):
             'urn:globus:auth:scope:transfer.api.globus.org:all'
             ]
         if self.username_from_email:
-            scopes.add('email')
+            scopes.append('email')
         if (
                 self.allowed_globus_groups
                 or self.blocked_globus_groups
                 or self.admin_globus_groups
             ):
-            scopes.add('urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships')
+            scopes.append('urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships')
         return scopes
 
     globus_local_endpoint = Unicode(
@@ -160,19 +160,19 @@ class GlobusOAuthenticator(OAuthenticator):
         return False
 
     blocked_globus_groups = Set(
-        config=True, help="""Automatically block members of defined Globus Groups. Takes precedence
+        help="""Automatically block members of defined Globus Groups. Takes precedence
         over allowed and admin user groups. Groups are specified with their UUIDs. Setting this will
         add the Globus Groups scope."""
     ).tag(config=True)
     
     allowed_globus_groups = Set(
-        config=True, help="""Allow members of defined Globus Groups to access JupyterHub. Users in an
+        help="""Allow members of defined Globus Groups to access JupyterHub. Users in an
         admin Globus Group are also automatically allowed. Groups are specified with their UUIDs. Setting this will
         add the Globus Groups scope."""
     ).tag(config=True)
 
     admin_globus_groups = Set(
-        config=True, help="""Set members of defined Globus Groups as JupyterHub admin users.
+        help="""Set members of defined Globus Groups as JupyterHub admin users.
         These users are automatically allowed to login to JupyterHub. Groups are specified with
         their UUIDs. Setting this will add the Globus Groups scope."""
     ).tag(config=True)
