@@ -12,8 +12,8 @@ from tornado.web import HTTPError
 from traitlets import Bool
 from traitlets import default
 from traitlets import List
-from traitlets import Unicode
 from traitlets import Set
+from traitlets import Unicode
 
 from .oauth2 import OAuthenticator
 from .oauth2 import OAuthLogoutHandler
@@ -88,7 +88,9 @@ class GlobusOAuthenticator(OAuthenticator):
     def _token_url_default(self):
         return "https://auth.globus.org/v2/oauth2/token"
 
-    globus_groups_url = Unicode(help="Globus URL to get list of user's Groups.").tag(config=True)
+    globus_groups_url = Unicode(help="Globus URL to get list of user's Groups.").tag(
+        config=True
+    )
 
     @default("globus_groups_url")
     def _globus_groups_url_default(self):
@@ -107,7 +109,8 @@ class GlobusOAuthenticator(OAuthenticator):
     username_from_email = Bool(
         help="""Create username from email address, not preferred username. If
         an identity provider is specified, email address must be from the same
-        domain. Email scope will be set automatically.""").tag(config=True)
+        domain. Email scope will be set automatically."""
+    ).tag(config=True)
 
     @default("username_from_email")
     def _username_from_email_default(self):
@@ -125,16 +128,18 @@ class GlobusOAuthenticator(OAuthenticator):
         scopes = [
             'openid',
             'profile',
-            'urn:globus:auth:scope:transfer.api.globus.org:all'
-            ]
+            'urn:globus:auth:scope:transfer.api.globus.org:all',
+        ]
         if self.username_from_email:
             scopes.append('email')
         if (
-                self.allowed_globus_groups
-                or self.blocked_globus_groups
-                or self.admin_globus_groups
-            ):
-            scopes.append('urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships')
+            self.allowed_globus_groups
+            or self.blocked_globus_groups
+            or self.admin_globus_groups
+        ):
+            scopes.append(
+                'urn:globus:auth:scope:groups.api.globus.org:view_my_groups_and_memberships'
+            )
         return scopes
 
     globus_local_endpoint = Unicode(
@@ -159,7 +164,7 @@ class GlobusOAuthenticator(OAuthenticator):
         over allowed and admin user groups. Groups are specified with their UUIDs. Setting this will
         add the Globus Groups scope."""
     ).tag(config=True)
-    
+
     allowed_globus_groups = Set(
         help="""Allow members of defined Globus Groups to access JupyterHub. Users in an
         admin Globus Group are also automatically allowed. Groups are specified with their UUIDs. Setting this will
@@ -253,9 +258,9 @@ class GlobusOAuthenticator(OAuthenticator):
         use_globus_groups = False
         user_allowed = False
         if (
-                self.allowed_globus_groups
-                or self.blocked_globus_groups
-                or self.admin_globus_groups
+            self.allowed_globus_groups
+            or self.blocked_globus_groups
+            or self.admin_globus_groups
         ):
             # If any of these configurations are set, user must be in the allowed or admin Globus Group
             use_globus_groups = True
@@ -269,7 +274,9 @@ class GlobusOAuthenticator(OAuthenticator):
             # Get list of user's Groups
             groups_headers = self.get_default_headers()
             groups_headers['Authorization'] = 'Bearer {}'.format(groups_token)
-            req = HTTPRequest(self.globus_groups_url, method='GET', headers=groups_headers)
+            req = HTTPRequest(
+                self.globus_groups_url, method='GET', headers=groups_headers
+            )
             groups_resp = await self.fetch(req)
             # Build set of Group IDs
             for group in groups_resp:
@@ -280,11 +287,12 @@ class GlobusOAuthenticator(OAuthenticator):
             # Check blocked users
             blocked_groups_membership = user_group_ids & self.blocked_globus_groups
             if (
-                    blocked_groups_membership and
-                    # Do not block admins or managers of blocked Groups
-                    not (blocked_groups_membership <= user_admin_groups)
-                ):
-                self.log.warning("%s in a blocked Globus Group", username)
+                blocked_groups_membership
+                and
+                # Do not block admins or managers of blocked Groups
+                not (blocked_groups_membership <= user_admin_groups)
+            ):
+                self.log.warning('{} in a blocked Globus Group'.format(username))
                 return None
             else:
                 if user_group_ids & self.allowed_globus_groups:
@@ -300,7 +308,7 @@ class GlobusOAuthenticator(OAuthenticator):
         if user_allowed or not use_globus_groups:
             return user_info
         else:
-            self.log.warning("%s not in an allowed Globus Group", username)
+            self.log.warning('{} not in an allowed Globus Group'.format(username))
             return None
 
     def get_username(self, user_data):
@@ -357,7 +365,8 @@ class GlobusOAuthenticator(OAuthenticator):
                 body=urllib.parse.urlencode({'token': token}),
             )
             await self.fetch(req)
-    
+
+
 class LocalGlobusOAuthenticator(LocalAuthenticator, GlobusOAuthenticator):
     """A version that mixes in local system user creation"""
 
