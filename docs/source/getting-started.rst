@@ -456,28 +456,51 @@ disable transfers, modify ``c.GlobusOAuthenticator.scope`` instead of
 tokens.
 
 Group Management
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
-The denied users groups should be a union of a Globus Group and the configuration file. This way, the Globus OAuthenticator will block users who are in a Globus Group managed by a limited set of people. This way, a security team could bock users without needing access to the JupyterHub config. Likewise, a system administrator could add someone to the config without having the ability to change the denied users Globus Group.
+Allowed, blocked, and admin users can be managed through `Globus
+Groups <https://docs.globus.org/how-to/managing-groups/>`__.  Globus
+Groups are identified using a UUID and multiple groups can be used for
+each of these configuration settings. The lets JuptyerHub admininstators
+choose whether to manage memership in the groups, or use groups
+managed by others. For example, researchers could manage groups of
+collaborators, or a security could add users to blocked groups. Each
+of these settings can contain multiple Globus Groups.
 
-In terms of implementation, I don’t know when the denied users configuration is checked. Hopefully, it’s after the OAuthenticator authenticate method so we can just let things flow normally.
+.. code:: python
 
-For the allowed and admin users, the simpler way to do it is to limit it to just their respective Globus Groups, and raise a configuration error if both a Globus Group and a list of users is specified. Otherwise, we would need to check both the existing configuration traits and the Group. I’d rather have a single point of truth to start.
+   # Groups of allowed users
+   c.GlobusOAuthenticator.allowed_globus_groups = set
+   authenticator.allowed_globus_groups = set({'d11abe71-5132-4c04-a4ad-50926885dc8c',
+                                                                           '21c6bc5d-fc12-4f60-b999-76766cd596c2'})
+   # Blocked Groups
+   authenticator.blocked_globus_groups = set({'915dcd61-c842-4ea4-97c6-57396b936016'})
+   # Admin users
+   authenticator.admin_globus_groups = set({'3f1f85c4-f084-4173-9efb-7c7e0b44291a'})
 
-For overall behavior, here’s the new flow for the Globus OAuthenticator I’m picturing:
+When any of these are set, the Globus Groups API scope will be
+included in the default list of scopes.
 
-- Check to see if Groups are specified for deny, allow, or admin, if so:
+The blocked users Groups have precedence, i.e., having a ``member``
+role in a blocked Group will deny access to the hub, regardless of
+membership in an allowed or admin Group. Also, users may still be
+blocked using their ``username`` in
+``c.Authenticator.blocked_users``. This ensures that system
+administrators can still block users at the system level. The
+exception to this is for managers or administrators of the blocked
+Globus Groups: if the JupyterHub user has either a ``manager`` or 
+``admin`` role on the blocked Groups, they will allowed.
 
-  - Look at the scopes, check that the Groups scope is in the token and config, otherwise, raise a config error.
-  - Raise a config error if both Globus Groups and existing config for allowed and admin users are set.
-  - Pull the user’s list of Groups. Maybe iterate over it and make a set of the Groups’ UUIDs.
+For example, Jordan and Sean are members of the allowed users
+groups ``21c6bc5d-fc12-4f60-b999-76766cd596c2`` configured
+above. Jordan is also a member of the blocked users group
+``915dcd61-c842-4ea4-97c6-57396b936016``, with a ``manager``
+role. Jordan adds Sean as a member to
+``915dcd61-c842-4ea4-97c6-57396b936016``. With this configuration,
+Jordan may still log in, but Sean will be blocked.
 
-- Check the denied users Group first and return unauthenticated if a match.
-- Set admin=False on a default user info dict.
-- Look over all of the user’s groups.
-
-  - Check for a match of allowed users or admin, set is_authenticated=True if there’s a hit
-  - If a match on admin, set admin=True
+When ``c.GlobusOAuthenticator.admin_globus_groups`` is set, only
+members of those groups will be JupyterHub admins. 
 
 .. _moodle-setup-label:
 
